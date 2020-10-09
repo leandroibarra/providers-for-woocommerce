@@ -20,7 +20,7 @@ jQuery(document).ready(function() {
 			'emptyTable': "No hay productos para este proveedor"
 		},
 		initComplete: function() {
-			jQuery('#table-provider-products').css('visibility', 'visible');
+			jQuery('#table-provider-products, .save-all').css('visibility', 'visible');
 			jQuery('#overlay').hide();
 		},
 	});

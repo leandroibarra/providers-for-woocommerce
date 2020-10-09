@@ -1,18 +1,28 @@
-#table-provider-products {
+#table-provider-orders {
 	border: 1px solid #CCCCCC;
 	visibility: hidden;
 }
 
-a.disabled {
-	opacity: .65;
-	pointer-events: none;
-}
-
-.save-all {
+.export-wrapper {
 	display: block;
 	margin: 20px 0;
-	text-align: center;
 	visibility: hidden;
+}
+
+.export-wrapper .export-input {
+	margin: 0 5px;
+	max-width: 70px;
+}
+
+.export-wrapper .export-button {
+	margin-left: 5px;
+	top: 0;
+}
+
+a.disabled,
+input.disabled {
+	opacity: .65;
+	pointer-events: none;
 }
 
 .spinner-border {

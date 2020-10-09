@@ -8,7 +8,7 @@
  *
  * Text Domain: providers-for-woocommerce
  *
- * Version: 0.0.2
+ * Version: 0.0.3
  * License: GPL2
  */
 if (!class_exists('Providers_For_WooCommerce')) {
@@ -17,14 +17,14 @@ if (!class_exists('Providers_For_WooCommerce')) {
 	 *
 	 * Extends WooCommerce existing plugin.
 	 *
-	 * @version	0.0.2
+	 * @version	0.0.3
 	 * @author	Leandro Ibarra
 	 */
 	class Providers_For_WooCommerce {
 		/**
 		 * @var string
 		 */
-		public $version = '0.0.2';
+		public $version = '0.0.3';
 
 		/**
 		 * @var string
@@ -35,6 +35,11 @@ if (!class_exists('Providers_For_WooCommerce')) {
 		 * @var Providers_For_WooCommerce
 		 */
 		private static $instance;
+
+		/**
+		 * @var string
+		 */
+		private $products_sales_in_last_sixty_days = 'view_products_sales_in_last_sixty_days';
 
 		/**
 		 * Retrieve an instance of this class.
@@ -53,6 +58,10 @@ if (!class_exists('Providers_For_WooCommerce')) {
 		 * Providers_For_WooCommerce constructor.
 		 */
 		public function __construct() {
+			// db queries
+			register_activation_hook(__FILE__, array($this, 'db_add'));
+			register_deactivation_hook(__FILE__, array($this, 'db_remove'));
+
 			// post type
 			add_action('init', array($this, 'register_post_type'));
 
@@ -72,7 +81,8 @@ if (!class_exists('Providers_For_WooCommerce')) {
 			add_action('admin_head', array($this, 'menu_highlight'));
 
 			// ajax
-			add_action( 'wp_ajax_save_product', array( $this, 'save_product_ajax' ) );
+			add_action('wp_ajax_save_product', array($this, 'save_product_ajax'));
+			add_action('wp_ajax_generate_purchase_order_xls', array($this, 'generate_purchase_order_xls_ajax'));
 
 			// checkout
 			add_action('woocommerce_checkout_create_order_line_item', array($this, 'action_woocommerce_checkout_create_order_line_item'), 10, 4 );
@@ -117,6 +127,7 @@ if (!class_exists('Providers_For_WooCommerce')) {
 		public function set_custom_provider_columns($columns) {
 			$_columns['title'] = $columns['title'];
 			$_columns['products'] = ''; //__( 'Productos', 'providers-for-woocommerce' );
+			$_columns['order'] = ''; //__( 'Órden de Compra', 'providers-for-woocommerce' );
 			$_columns['date'] = $columns['date'];
 
 			return $_columns;
@@ -130,6 +141,9 @@ if (!class_exists('Providers_For_WooCommerce')) {
 				switch ($column_key) {
 					case 'products':
 						echo '<a href="/wp-admin/edit.php?post_type=provider&page=provider_products&id='.$post_id.'">'.__( 'Productos', 'providers-for-woocommerce' ).'</a>';
+						break;
+					case 'order':
+						echo '<a href="/wp-admin/edit.php?post_type=provider&page=provider_orders&id='.$post_id.'">'.__( 'Órden de Compra', 'providers-for-woocommerce' ).'</a>';
 						break;
 				}
 			}
@@ -201,6 +215,8 @@ if (!class_exists('Providers_For_WooCommerce')) {
 				'numberposts'   =>   -1
 			) );
 
+			$current_options[0] = '';
+
 			foreach ($posts as $key => $post) {
 				$current_options[$post->ID] = $post->post_title;
 			}
@@ -245,6 +261,18 @@ if (!class_exists('Providers_For_WooCommerce')) {
 
 			add_action( 'admin_print_styles-' . $provider_products, array( $this, 'provider_products_enqueue_styles' ) );
 			add_action( 'admin_print_scripts-' . $provider_products, array( $this, 'provider_products_enqueue_scripts' ) );
+
+			$provider_orders = add_submenu_page(
+				null,
+				__( 'Órdenes de Compra', 'providers-for-woocommerce' ),
+				__( 'Órden de Compra', 'providers-for-woocommerce' ),
+				'manage_options',
+				'provider_orders',
+				array($this, 'create_admin_provider_orders')
+			);
+
+			add_action( 'admin_print_styles-' . $provider_orders, array( $this, 'provider_orders_enqueue_styles' ) );
+			add_action( 'admin_print_scripts-' . $provider_orders, array( $this, 'provider_orders_enqueue_scripts' ) );
 		}
 
 		/**
@@ -269,6 +297,9 @@ if (!class_exists('Providers_For_WooCommerce')) {
 		public function create_admin_provider_products() {
 			require_once $this->plugin_path() . '/admin/partials/provider-products.php';
 		}
+		public function create_admin_provider_orders() {
+			require_once $this->plugin_path() . '/admin/partials/provider-orders.php';
+		}
 
 		/**
 		 * Add css styles.
@@ -277,6 +308,10 @@ if (!class_exists('Providers_For_WooCommerce')) {
 			wp_enqueue_style( 'providers-for-woocommerce-datatables-css', $this->plugin_url() . '/assets/css/datatables.css', array(), '', 'all' );
 			wp_enqueue_style( 'providers-for-woocommerce-products-css', $this->plugin_url() . '/assets/css/provider-products.css', array(), '', 'all' );
 		}
+		public function provider_orders_enqueue_styles() {
+			wp_enqueue_style( 'providers-for-woocommerce-datatables-css', $this->plugin_url() . '/assets/css/datatables.css', array(), '', 'all' );
+			wp_enqueue_style( 'providers-for-woocommerce-orders-css', $this->plugin_url() . '/assets/css/provider-orders.css', array(), '', 'all' );
+		}
 
 		/**
 		 * Add js scripts.
@@ -284,6 +319,10 @@ if (!class_exists('Providers_For_WooCommerce')) {
 		public function provider_products_enqueue_scripts() {
 			wp_enqueue_script( 'providers-for-woocommerce-datatables-js', $this->plugin_url() . '/assets/js/datatables.js', array( 'jquery' ), '', true );
 			wp_enqueue_script( 'providers-for-woocommerce-products-js', $this->plugin_url() . '/assets/js/provider-products.js', array( 'jquery' ), '', true );
+		}
+		public function provider_orders_enqueue_scripts() {
+			wp_enqueue_script( 'providers-for-woocommerce-datatables-js', $this->plugin_url() . '/assets/js/datatables.js', array( 'jquery' ), '', true );
+			wp_enqueue_script( 'providers-for-woocommerce-orders-js', $this->plugin_url() . '/assets/js/provider-orders.js', array( 'jquery' ), '', true );
 		}
 		public function admin_scripts() {
 			wp_enqueue_script( 'providers-for-woocommerce-scripts-js', $this->plugin_url() . '/assets/js/scripts.js', array( 'jquery' ), '', true );
@@ -311,6 +350,53 @@ if (!class_exists('Providers_For_WooCommerce')) {
 			} else {
 				wp_die('error');
 			}
+		}
+
+		/**
+		 * Generate purchase order.
+		 */
+		public function generate_purchase_order_xls_ajax() {
+			require_once $this->plugin_path() . '/includes/Excel_XML.php';
+
+			$aReport = array();
+
+			global $wpdb;
+
+			$products = $wpdb->get_results(
+				"
+				SELECT 
+					P.ID, 
+					P.post_title, 
+					SSD.quantity, 
+					SSD.average_for_a_day 
+				FROM {$wpdb->prefix}{$this->products_sales_in_last_sixty_days} AS SSD 
+					LEFT JOIN {$wpdb->prefix}posts P ON P.ID = SSD.product_id 
+				WHERE SSD.product_id IN (".implode(', ', $_POST['product_id']).") 
+				ORDER BY P.post_title ASC
+				",
+				'ARRAY_A'
+			);
+			
+			foreach ($products as $key => $product) {
+				$post_meta = get_post_meta($product['ID']);
+			
+				foreach ($post_meta as $k => $v) {
+					if ($k === '_sku') {
+						$aReport[$key][__('SKU', 'providers-for-woocommerce')] = $v[0];
+					}
+				}
+
+				$aReport[$key][__('Nombre', 'providers-for-woocommerce')] = $product['post_title'];
+				$aReport[$key][__('Cantidad Compra', 'providers-for-woocommerce')] = intval($product['average_for_a_day']) * intval($_POST['days']);
+			}
+
+			$oExcelXml = new Excel_XML('UTF-8', true, __('Hoja 1', 'providers-for-woocommerce'));
+			array_unshift($aReport, array_keys($aReport[0]));
+
+			$oExcelXml->addArray($aReport, __('orden_de_compra', 'providers-for-woocommerce'));
+			$oExcelXml->generateXML(mktime() . '_' . __('orden_de_compra', 'providers-for-woocommerce'));
+
+			exit();
 		}
 
 		/**
@@ -347,6 +433,52 @@ if (!class_exists('Providers_For_WooCommerce')) {
 		 */
 		public function plugin_path() {
 			return untrailingslashit(plugin_dir_path(__FILE__));
+		}
+
+		/**
+		 * Add database necessary view on plugin activation.
+		 */
+		public function db_add() {
+			global $wpdb;
+
+			$sql = "
+				CREATE OR REPLACE VIEW {$wpdb->prefix}{$this->products_sales_in_last_sixty_days} AS
+					SELECT
+						SUM(OI_QUANTITY.meta_value) AS quantity,
+						CEIL(SUM(OI_QUANTITY.meta_value) / 60) AS average_for_a_day,
+						OI_PRODUCT_ID.meta_value AS product_id
+					FROM {$wpdb->prefix}posts AS P
+						INNER JOIN {$wpdb->prefix}woocommerce_order_items AS OI
+							ON P.ID = OI.order_id
+						INNER JOIN {$wpdb->prefix}woocommerce_order_itemmeta AS OI_QUANTITY
+							ON OI.order_item_id = OI_QUANTITY.order_item_id AND OI_QUANTITY.meta_key = '_qty'
+						INNER JOIN {$wpdb->prefix}woocommerce_order_itemmeta AS OI_PRODUCT_ID
+							ON OI.order_item_id = OI_PRODUCT_ID.order_item_id AND OI_PRODUCT_ID.meta_key = '_product_id'
+						INNER JOIN {$wpdb->prefix}woocommerce_order_itemmeta AS OI_PRODUCT_VARIATION
+							ON OI.order_item_id = OI_PRODUCT_VARIATION.order_item_id
+					WHERE
+						P.post_type IN ('shop_order', 'shop_order_refund') AND
+						P.post_status IN ('wc-completed', 'wc-processing', 'wc-on-hold',' wc-refunded') AND
+						P.post_date >= CONCAT(CURRENT_DATE - INTERVAL 60 DAY, ' 23:59:59') AND
+						P.post_date < CONCAT(CURRENT_DATE, ' 00:00:00') AND
+						OI_PRODUCT_VARIATION.meta_key IN ('_product_id', '_variation_id') AND
+						OI_PRODUCT_VARIATION.meta_value IN (
+							SELECT ID FROM {$wpdb->prefix}posts WHERE post_type='product' AND post_status='publish'
+						)
+					GROUP BY product_id
+					ORDER BY quantity DESC;
+			";
+
+			$result = $wpdb->query($sql);
+		}
+
+		/**
+		 * Remove database necessary view on plugin deactivation.
+		 */
+		public function db_remove() {
+			global $wpdb;
+
+			$result = $wpdb->query("DROP VIEW IF EXISTS {$wpdb->prefix}{$this->products_sales_in_last_sixty_days};");
 		}
 	}
 
