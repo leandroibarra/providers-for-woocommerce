@@ -64,5 +64,5 @@ jQuery(document).ready(function() {
 				}).appendTo(jQuery('.export-form'));
 			});
 		}
-	})
+	});
 });

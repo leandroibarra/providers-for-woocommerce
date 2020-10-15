@@ -93,7 +93,7 @@ $columns = array(
 				<?php echo __('Exportar Órden de Compra para', 'providers-for-woocommerce'); ?>
 				<input type="number" name="days" id="export-input" class="export-input disabled" min="1" disabled="disabled" />
 				<?php echo __('días', 'providers-for-woocommerce'); ?>
-				<input type="submit" name="export" id="export-input" class="export-button add-new-h2 disabled" value="⇩" disabled="disabled">
+				<input type="submit" name="export" id="export-button" class="export-button add-new-h2 disabled" value="⇩" disabled="disabled" />
 			</form>
 		</div>
 		<?php } ?>

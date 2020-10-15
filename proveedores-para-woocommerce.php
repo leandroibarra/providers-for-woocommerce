@@ -8,7 +8,7 @@
  *
  * Text Domain: providers-for-woocommerce
  *
- * Version: 0.0.3
+ * Version: 0.4.0
  * License: GPL2
  */
 if (!class_exists('Providers_For_WooCommerce')) {
@@ -17,14 +17,14 @@ if (!class_exists('Providers_For_WooCommerce')) {
 	 *
 	 * Extends WooCommerce existing plugin.
 	 *
-	 * @version	0.0.3
+	 * @version	0.4.0
 	 * @author	Leandro Ibarra
 	 */
 	class Providers_For_WooCommerce {
 		/**
 		 * @var string
 		 */
-		public $version = '0.0.3';
+		public $version = '0.4.0';
 
 		/**
 		 * @var string
@@ -40,6 +40,11 @@ if (!class_exists('Providers_For_WooCommerce')) {
 		 * @var string
 		 */
 		private $products_sales_in_last_sixty_days = 'view_products_sales_in_last_sixty_days';
+
+		/**
+		 * @var string
+		 */
+		private $products_sales_meta_values = 'view_products_sales_meta_values';
 
 		/**
 		 * Retrieve an instance of this class.
@@ -83,6 +88,7 @@ if (!class_exists('Providers_For_WooCommerce')) {
 			// ajax
 			add_action('wp_ajax_save_product', array($this, 'save_product_ajax'));
 			add_action('wp_ajax_generate_purchase_order_xls', array($this, 'generate_purchase_order_xls_ajax'));
+			add_action('wp_ajax_generate_sales_report_xls', array($this, 'generate_sales_report_xls_ajax'));
 
 			// checkout
 			add_action('woocommerce_checkout_create_order_line_item', array($this, 'action_woocommerce_checkout_create_order_line_item'), 10, 4 );
@@ -128,6 +134,7 @@ if (!class_exists('Providers_For_WooCommerce')) {
 			$_columns['title'] = $columns['title'];
 			$_columns['products'] = ''; //__( 'Productos', 'providers-for-woocommerce' );
 			$_columns['order'] = ''; //__( 'Órden de Compra', 'providers-for-woocommerce' );
+			$_columns['report'] = ''; //__( 'Reporte de Productos', 'providers-for-woocommerce' );
 			$_columns['date'] = $columns['date'];
 
 			return $_columns;
@@ -144,6 +151,9 @@ if (!class_exists('Providers_For_WooCommerce')) {
 						break;
 					case 'order':
 						echo '<a href="/wp-admin/edit.php?post_type=provider&page=provider_orders&id='.$post_id.'">'.__( 'Órden de Compra', 'providers-for-woocommerce' ).'</a>';
+						break;
+					case 'report':
+						echo '<a href="/wp-admin/edit.php?post_type=provider&page=provider_report&id='.$post_id.'">'.__( 'Reporte de Productos', 'providers-for-woocommerce' ).'</a>';
 						break;
 				}
 			}
@@ -273,6 +283,18 @@ if (!class_exists('Providers_For_WooCommerce')) {
 
 			add_action( 'admin_print_styles-' . $provider_orders, array( $this, 'provider_orders_enqueue_styles' ) );
 			add_action( 'admin_print_scripts-' . $provider_orders, array( $this, 'provider_orders_enqueue_scripts' ) );
+
+			$provider_report = add_submenu_page(
+				null,
+				__( 'Reportes de Productos', 'providers-for-woocommerce' ),
+				__( 'Reporte de Productos', 'providers-for-woocommerce' ),
+				'manage_options',
+				'provider_report',
+				array($this, 'create_admin_provider_report')
+			);
+
+			add_action( 'admin_print_styles-' . $provider_report, array( $this, 'provider_report_enqueue_styles' ) );
+			add_action( 'admin_print_scripts-' . $provider_report, array( $this, 'provider_report_enqueue_scripts' ) );
 		}
 
 		/**
@@ -300,6 +322,9 @@ if (!class_exists('Providers_For_WooCommerce')) {
 		public function create_admin_provider_orders() {
 			require_once $this->plugin_path() . '/admin/partials/provider-orders.php';
 		}
+		public function create_admin_provider_report() {
+			require_once $this->plugin_path() . '/admin/partials/provider-report.php';
+		}
 
 		/**
 		 * Add css styles.
@@ -312,6 +337,10 @@ if (!class_exists('Providers_For_WooCommerce')) {
 			wp_enqueue_style( 'providers-for-woocommerce-datatables-css', $this->plugin_url() . '/assets/css/datatables.css', array(), '', 'all' );
 			wp_enqueue_style( 'providers-for-woocommerce-orders-css', $this->plugin_url() . '/assets/css/provider-orders.css', array(), '', 'all' );
 		}
+		public function provider_report_enqueue_styles() {
+			wp_enqueue_style( 'providers-for-woocommerce-daterangepicker-css', $this->plugin_url() . '/assets/css/daterangepicker.css', array(), '', 'all' );
+			wp_enqueue_style( 'providers-for-woocommerce-report-css', $this->plugin_url() . '/assets/css/provider-report.css', array(), '', 'all' );
+		}
 
 		/**
 		 * Add js scripts.
@@ -323,6 +352,11 @@ if (!class_exists('Providers_For_WooCommerce')) {
 		public function provider_orders_enqueue_scripts() {
 			wp_enqueue_script( 'providers-for-woocommerce-datatables-js', $this->plugin_url() . '/assets/js/datatables.js', array( 'jquery' ), '', true );
 			wp_enqueue_script( 'providers-for-woocommerce-orders-js', $this->plugin_url() . '/assets/js/provider-orders.js', array( 'jquery' ), '', true );
+		}
+		public function provider_report_enqueue_scripts() {
+			wp_enqueue_script( 'providers-for-woocommerce-moment-js', $this->plugin_url() . '/assets/js/moment.js', array( 'jquery' ), '', true );
+			wp_enqueue_script( 'providers-for-woocommerce-daterangepicker-js', $this->plugin_url() . '/assets/js/daterangepicker.js', array( 'jquery' ), '', true );
+			wp_enqueue_script( 'providers-for-woocommerce-report-js', $this->plugin_url() . '/assets/js/provider-report.js', array( 'jquery' ), '', true );
 		}
 		public function admin_scripts() {
 			wp_enqueue_script( 'providers-for-woocommerce-scripts-js', $this->plugin_url() . '/assets/js/scripts.js', array( 'jquery' ), '', true );
@@ -356,7 +390,7 @@ if (!class_exists('Providers_For_WooCommerce')) {
 		 * Generate purchase order.
 		 */
 		public function generate_purchase_order_xls_ajax() {
-			require_once $this->plugin_path() . '/includes/Excel_XML.php';
+			require_once $this->plugin_path() . '/includes/php-excel.class.php';
 
 			$aReport = array();
 
@@ -364,14 +398,14 @@ if (!class_exists('Providers_For_WooCommerce')) {
 
 			$products = $wpdb->get_results(
 				"
-				SELECT 
-					P.ID, 
-					P.post_title, 
-					SSD.quantity, 
-					SSD.average_for_a_day 
-				FROM {$wpdb->prefix}{$this->products_sales_in_last_sixty_days} AS SSD 
-					LEFT JOIN {$wpdb->prefix}posts P ON P.ID = SSD.product_id 
-				WHERE SSD.product_id IN (".implode(', ', $_POST['product_id']).") 
+				SELECT
+					P.ID,
+					P.post_title,
+					SSD.quantity,
+					SSD.average_for_a_day
+				FROM {$wpdb->prefix}{$this->products_sales_in_last_sixty_days} AS SSD
+					LEFT JOIN {$wpdb->prefix}posts P ON P.ID = SSD.product_id
+				WHERE SSD.product_id IN (".implode(', ', $_POST['product_id']).")
 				ORDER BY P.post_title ASC
 				",
 				'ARRAY_A'
@@ -390,11 +424,101 @@ if (!class_exists('Providers_For_WooCommerce')) {
 				$aReport[$key][__('Cantidad Compra', 'providers-for-woocommerce')] = intval($product['average_for_a_day']) * intval($_POST['days']);
 			}
 
-			$oExcelXml = new Excel_XML('UTF-8', true, __('Hoja 1', 'providers-for-woocommerce'));
-			array_unshift($aReport, array_keys($aReport[0]));
+			$aReport = array_merge(array(array_combine(array_keys($aReport[0]), array_keys($aReport[0]))), $aReport);
 
-			$oExcelXml->addArray($aReport, __('orden_de_compra', 'providers-for-woocommerce'));
-			$oExcelXml->generateXML(mktime() . '_' . __('orden_de_compra', 'providers-for-woocommerce'));
+			$xls = new Excel_XML;
+			$xls->addWorksheet(__('Hoja 1', 'providers-for-woocommerce'), $aReport);
+			$xls->sendWorkbook(mktime() . '_' . __('orden_de_compra', 'providers-for-woocommerce').'.xls');
+
+			exit();
+		}
+
+		/**
+		 * Generate sales report.
+		 */
+		public function generate_sales_report_xls_ajax() {
+			require_once $this->plugin_path() . '/includes/php-excel.class.php';
+
+			$aReport = array();
+
+			global $wpdb;
+
+			$provider = $wpdb->get_results( "SELECT * FROM {$wpdb->prefix}posts WHERE ID={$_POST['provider_id']}" );
+
+			$provider_title = esc_html( $provider[0]->post_title );
+
+			$products = $wpdb->get_results(
+				"
+				SELECT
+					P.ID AS ID,
+					P.post_title AS post_title,
+					SKU.meta_value AS sku,
+					PURCHASE.meta_value AS purchase_price,
+					MARGIN.meta_value AS profit_margin,
+					COALESCE(sales.quantity, 0) AS quantity,
+					COALESCE(sales.total, 0) AS total,
+					COALESCE(sales.utility, 0) AS utility
+				FROM {$wpdb->prefix}postmeta PM
+					INNER JOIN {$wpdb->prefix}posts P
+						ON P.ID = PM.post_id
+					INNER JOIN {$wpdb->prefix}term_relationships AS rel
+						ON rel.object_id = P.ID
+					INNER JOIN {$wpdb->prefix}terms AS term
+						ON term.term_id = rel.term_taxonomy_id
+					INNER JOIN {$wpdb->prefix}term_taxonomy AS tax
+						ON tax.term_taxonomy_id = rel.term_taxonomy_id
+					LEFT JOIN {$wpdb->prefix}postmeta SKU
+						ON SKU.post_id = P.ID
+					LEFT JOIN {$wpdb->prefix}postmeta PURCHASE
+						ON PURCHASE.post_id = P.ID
+					LEFT JOIN {$wpdb->prefix}postmeta MARGIN
+						ON MARGIN.post_id = P.ID
+					LEFT JOIN (
+						SELECT
+							SUM(quantity) AS quantity,
+							FORMAT(SUM(total), 2) AS total,
+							FORMAT(SUM(utility), 2) AS utility,
+							product_id
+						FROM {$wpdb->prefix}{$this->products_sales_meta_values}
+						WHERE order_date BETWEEN '{$_POST['start_date']}' AND '{$_POST['end_date']}'
+						GROUP BY product_id
+					) AS sales ON sales.product_id = P.ID
+				WHERE
+					PM.meta_key='provider' AND
+					PM.meta_value={$_POST['provider_id']} AND
+					tax.term_id IN (".implode(', ', (array) $_POST['category_id']).") AND
+					SKU.meta_key = '_sku' AND
+					PURCHASE.meta_key = 'purchase_price' AND
+					MARGIN.meta_key = 'profit_margin'
+				GROUP BY P.ID
+				ORDER BY P.post_title ASC
+				",
+				'ARRAY_A'
+			);
+
+			foreach ($products as $key => $product) {
+				$aReport[$key][__('SKU', 'providers-for-woocommerce')] = $product['sku'];
+				$aReport[$key][__('Nombre', 'providers-for-woocommerce')] = $product['post_title'];
+				$aReport[$key][__('Proveedor', 'providers-for-woocommerce')] = $provider_title;
+
+				$aReport[$key][__('Categoría/s', 'providers-for-woocommerce')] = implode(', ', array_map(
+					function($category) {
+						return $category->name;
+					},
+					wp_get_post_terms($product['ID'], 'product_cat'))
+				);
+
+				$aReport[$key][__('Cantidad de Unidades Vendidas', 'providers-for-woocommerce')] = $product['quantity'];
+				$aReport[$key][__('Monto ventas', 'providers-for-woocommerce')] = $product['total'];
+				$aReport[$key][__('Margen de Ganancia', 'providers-for-woocommerce')] = $product['profit_margin'];
+				$aReport[$key][__('Utilidad', 'providers-for-woocommerce')] = $product['utility'];
+			}
+
+			$aReport = array_merge(array(array_combine(array_keys($aReport[0]), array_keys($aReport[0]))), $aReport);
+
+			$xls = new Excel_XML;
+			$xls->addWorksheet(__('Hoja 1', 'providers-for-woocommerce'), $aReport);
+			$xls->sendWorkbook(mktime() . '_' . __('reporte_de_productos', 'providers-for-woocommerce').'.xls');
 
 			exit();
 		}
@@ -459,14 +583,58 @@ if (!class_exists('Providers_For_WooCommerce')) {
 					WHERE
 						P.post_type IN ('shop_order', 'shop_order_refund') AND
 						P.post_status IN ('wc-completed', 'wc-processing', 'wc-on-hold',' wc-refunded') AND
-						P.post_date >= CONCAT(CURRENT_DATE - INTERVAL 60 DAY, ' 23:59:59') AND
-						P.post_date < CONCAT(CURRENT_DATE, ' 00:00:00') AND
+						P.post_date >= CONCAT(CURRENT_DATE - INTERVAL 60 DAY, ' 00:00:00') AND
+						P.post_date < CONCAT(CURRENT_DATE, ' 23:59:59') AND
 						OI_PRODUCT_VARIATION.meta_key IN ('_product_id', '_variation_id') AND
 						OI_PRODUCT_VARIATION.meta_value IN (
 							SELECT ID FROM {$wpdb->prefix}posts WHERE post_type='product' AND post_status='publish'
 						)
 					GROUP BY product_id
 					ORDER BY quantity DESC;
+			";
+
+			$result = $wpdb->query($sql);
+
+			$sql = "
+				CREATE OR REPLACE VIEW {$wpdb->prefix}{$this->products_sales_meta_values} AS
+					SELECT
+						P.ID AS order_id,
+						P.post_date AS order_date,
+						OI_PRODUCT_ID.meta_value AS product_id,
+						-- Cantidad de unidades vendidas en la orden
+						SUM(OI_QUANTITY.meta_value) AS quantity,
+						-- Monto total del producto en la orden (cantidad * precio de venta)
+						SUM(OI_TOTAL.meta_value) AS total,
+						-- Precio unitario del producto en la orden (calculado)
+						(SUM(OI_TOTAL.meta_value) / SUM(OI_QUANTITY.meta_value)) AS unit_price,
+						-- Margen de Ganancia (guardado al momento de agregar el producto en la orden)
+						COALESCE(OI_MARGIN.meta_value, 0) AS profit_margin,
+						-- Precio de compra (guardado al momento de agregar el producto en la orden)
+						COALESCE(OI_PURCHASE.meta_value, 0) AS purchase_price,
+						-- Utilidad del producto en la orden
+						-- (monto de venta: productos vendidos * precio venta) - (productos vendidos * precio compra)
+						FORMAT(SUM(OI_TOTAL.meta_value) - (SUM(OI_QUANTITY.meta_value) * COALESCE(OI_PURCHASE.meta_value, 0)), AS utility
+					FROM {$wpdb->prefix}posts AS P
+						INNER JOIN {$wpdb->prefix}woocommerce_order_items AS OI
+							ON P.ID = OI.order_id
+						INNER JOIN {$wpdb->prefix}woocommerce_order_itemmeta AS OI_PRODUCT_VARIATION
+							ON OI.order_item_id = OI_PRODUCT_VARIATION.order_item_id
+						LEFT JOIN {$wpdb->prefix}woocommerce_order_itemmeta AS OI_QUANTITY
+							ON OI.order_item_id = OI_QUANTITY.order_item_id AND OI_QUANTITY.meta_key = '_qty'
+						LEFT JOIN {$wpdb->prefix}woocommerce_order_itemmeta AS OI_TOTAL
+							ON OI.order_item_id = OI_TOTAL.order_item_id AND OI_TOTAL.meta_key = '_line_total'
+						LEFT JOIN {$wpdb->prefix}woocommerce_order_itemmeta AS OI_MARGIN
+							ON OI.order_item_id = OI_MARGIN.order_item_id AND OI_MARGIN.meta_key = 'profit_margin'
+						LEFT JOIN {$wpdb->prefix}woocommerce_order_itemmeta AS OI_PURCHASE
+							ON OI.order_item_id = OI_PURCHASE.order_item_id AND OI_PURCHASE.meta_key = 'purchase_price'
+						LEFT JOIN {$wpdb->prefix}woocommerce_order_itemmeta AS OI_PRODUCT_ID
+							ON OI.order_item_id = OI_PRODUCT_ID.order_item_id AND OI_PRODUCT_ID.meta_key = '_product_id'
+					WHERE
+						P.post_type IN ('shop_order', 'shop_order_refund') AND
+						P.post_status IN ('wc-completed', 'wc-processing', 'wc-on-hold',' wc-refunded') AND
+						OI_PRODUCT_VARIATION.meta_key IN ('_product_id', '_variation_id')
+					GROUP BY P.ID, product_id
+					ORDER BY order_date DESC;
 			";
 
 			$result = $wpdb->query($sql);
@@ -479,6 +647,8 @@ if (!class_exists('Providers_For_WooCommerce')) {
 			global $wpdb;
 
 			$result = $wpdb->query("DROP VIEW IF EXISTS {$wpdb->prefix}{$this->products_sales_in_last_sixty_days};");
+
+			$result = $wpdb->query("DROP VIEW IF EXISTS {$wpdb->prefix}{$this->products_sales_meta_values};");
 		}
 	}
 
