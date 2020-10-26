@@ -8,7 +8,7 @@
  *
  * Text Domain: providers-for-woocommerce
  *
- * Version: 0.4.0
+ * Version: 0.4.1
  * License: GPL2
  */
 if (!class_exists('Providers_For_WooCommerce')) {
@@ -17,14 +17,14 @@ if (!class_exists('Providers_For_WooCommerce')) {
 	 *
 	 * Extends WooCommerce existing plugin.
 	 *
-	 * @version	0.4.0
+	 * @version	0.4.1
 	 * @author	Leandro Ibarra
 	 */
 	class Providers_For_WooCommerce {
 		/**
 		 * @var string
 		 */
-		public $version = '0.4.0';
+		public $version = '0.4.1';
 
 		/**
 		 * @var string
@@ -401,25 +401,21 @@ if (!class_exists('Providers_For_WooCommerce')) {
 				SELECT
 					P.ID,
 					P.post_title,
-					SSD.quantity,
-					SSD.average_for_a_day
-				FROM {$wpdb->prefix}{$this->products_sales_in_last_sixty_days} AS SSD
-					LEFT JOIN {$wpdb->prefix}posts P ON P.ID = SSD.product_id
-				WHERE SSD.product_id IN (".implode(', ', $_POST['product_id']).")
-				ORDER BY P.post_title ASC
+					COALESCE(SSD.quantity, 0) AS quantity,
+					COALESCE(SSD.average_for_a_day, 0) AS average_for_a_day,
+					COALESCE(SKU.meta_value, '') AS sku
+				FROM {$wpdb->prefix}posts P
+					LEFT JOIN {$wpdb->prefix}{$this->products_sales_in_last_sixty_days} AS SSD
+						ON SSD.product_id = P.ID
+					LEFT JOIN {$wpdb->prefix}postmeta AS SKU
+						ON SKU.post_id = P.ID AND SKU.meta_key = '_sku'
+				WHERE P.ID IN (".implode(', ', $_POST['product_id']).")
 				",
 				'ARRAY_A'
 			);
-			
-			foreach ($products as $key => $product) {
-				$post_meta = get_post_meta($product['ID']);
-			
-				foreach ($post_meta as $k => $v) {
-					if ($k === '_sku') {
-						$aReport[$key][__('SKU', 'providers-for-woocommerce')] = $v[0];
-					}
-				}
 
+			foreach ($products as $key => $product) {
+				$aReport[$key][__('SKU', 'providers-for-woocommerce')] = $product['sku'];
 				$aReport[$key][__('Nombre', 'providers-for-woocommerce')] = $product['post_title'];
 				$aReport[$key][__('Cantidad Compra', 'providers-for-woocommerce')] = intval($product['average_for_a_day']) * intval($_POST['days']);
 			}
@@ -613,7 +609,7 @@ if (!class_exists('Providers_For_WooCommerce')) {
 						COALESCE(OI_PURCHASE.meta_value, 0) AS purchase_price,
 						-- Utilidad del producto en la orden
 						-- (monto de venta: productos vendidos * precio venta) - (productos vendidos * precio compra)
-						FORMAT(SUM(OI_TOTAL.meta_value) - (SUM(OI_QUANTITY.meta_value) * COALESCE(OI_PURCHASE.meta_value, 0)), AS utility
+						FORMAT(SUM(OI_TOTAL.meta_value) - (SUM(OI_QUANTITY.meta_value) * COALESCE(OI_PURCHASE.meta_value, 0)), 2) AS utility
 					FROM {$wpdb->prefix}posts AS P
 						INNER JOIN {$wpdb->prefix}woocommerce_order_items AS OI
 							ON P.ID = OI.order_id
