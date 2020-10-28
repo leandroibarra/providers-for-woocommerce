@@ -8,7 +8,7 @@
  *
  * Text Domain: providers-for-woocommerce
  *
- * Version: 0.4.1
+ * Version: 0.5.0
  * License: GPL2
  */
 if (!class_exists('Providers_For_WooCommerce')) {
@@ -17,14 +17,14 @@ if (!class_exists('Providers_For_WooCommerce')) {
 	 *
 	 * Extends WooCommerce existing plugin.
 	 *
-	 * @version	0.4.1
+	 * @version	0.5.0
 	 * @author	Leandro Ibarra
 	 */
 	class Providers_For_WooCommerce {
 		/**
 		 * @var string
 		 */
-		public $version = '0.4.1';
+		public $version = '0.5.0';
 
 		/**
 		 * @var string
@@ -73,11 +73,21 @@ if (!class_exists('Providers_For_WooCommerce')) {
 			// admin columns
 			add_filter('manage_provider_posts_columns', array($this, 'set_custom_provider_columns'));
 			add_action('manage_provider_posts_custom_column', array($this, 'set_custom_provider_content_column'), 10, 2);
+			add_filter('manage_edit-product_columns', array($this, 'set_product_provider_column'));
+			add_action('manage_posts_custom_column', array($this, 'set_product_provider_content_column'), 10, 1);
 
 			// admin tab
 			add_filter('woocommerce_product_data_tabs', array($this, 'add_provider_tab_to_woocommerce_product'), 99, 1);
 			add_action('woocommerce_product_data_panels', array($this, 'add_provider_fields_to_tab'));
 			add_action('woocommerce_process_product_meta', array($this, 'save_provider_fields'));
+
+			// admin bulk edit
+			add_action('woocommerce_product_bulk_edit_start', array($this, 'provider_field_in_product_bulk_edit'));
+			add_action('woocommerce_product_bulk_edit_save', array($this, 'save_provider_field_in_product_bulk_edit'), 10, 1);
+
+			// admin quick edit
+			add_action('woocommerce_product_quick_edit_start', array($this, 'provider_field_in_product_quick_edit'));
+			add_action('woocommerce_product_quick_edit_save', array($this, 'save_provider_field_in_product_quick_edit'), 10, 1);
 
 			// menu
 			add_action('admin_menu', array($this, 'add_admin_menu'), 26);
@@ -95,6 +105,7 @@ if (!class_exists('Providers_For_WooCommerce')) {
 
 			// admin scripts
 			add_action('admin_enqueue_scripts', array($this, 'admin_scripts'));
+			add_action('admin_enqueue_scripts', array($this, 'provider_enqueue_quick_edit_js'), 10, 1);
 		}
 
 		/**
@@ -155,6 +166,31 @@ if (!class_exists('Providers_For_WooCommerce')) {
 					case 'report':
 						echo '<a href="/wp-admin/edit.php?post_type=provider&page=provider_report&id='.$post_id.'">'.__( 'Reporte de Productos', 'providers-for-woocommerce' ).'</a>';
 						break;
+				}
+			}
+		}
+
+		/**
+		 * Set custom provider column in WooCommerce product list.
+		 */
+		public function set_product_provider_column( $columns_array ) {
+			return array_slice( $columns_array, 0, count($columns_array) - 3 )
+				+ array( 'provider' => __( 'Proveedor', 'providers-for-woocommerce' ) )
+				+ array_slice( $columns_array, -2 );
+		}
+
+		/**
+		 * Set value for custom provider column in WooCommerce product list.
+		 */
+		public function set_product_provider_content_column( $column_name ) {
+			if ( $column_name  == 'provider' ) {
+				$post_id = get_the_ID();
+				$provider_id = get_post_meta($post_id, 'provider')[0];
+
+				echo '<input type="hidden" name="hidden-provider['.$post_id.']" id="hidden-provider-'.$post_id.'" value="'.$provider_id.'" />';
+
+				if ($provider_id) {
+					echo get_the_title($provider_id);
 				}
 			}
 		}
@@ -253,6 +289,97 @@ if (!class_exists('Providers_For_WooCommerce')) {
 			$provider = $_POST['provider'];
 			if (!empty($provider)) {
 				update_post_meta($post_id, 'provider', filter_var($provider, FILTER_SANITIZE_NUMBER_INT));
+			}
+		}
+
+		/**
+		 * Add provider field to product bulk edition.
+		 */
+		public function provider_field_in_product_bulk_edit() {
+			$this->provider_field_in_product_bulk_and_quick_edit('bulk');
+		}
+
+		/**
+		 * Add provider field to product quick edition.
+		 */
+		public function provider_field_in_product_quick_edit() {
+			$this->provider_field_in_product_bulk_and_quick_edit('quick');
+		}
+
+		/**
+		 * Build provider field to product bulk and quick edition.
+		 */
+		private function provider_field_in_product_bulk_and_quick_edit($target) {
+			$id = get_the_ID();
+			echo '<div class="inline-edit-group" data-id="'.$id.'">';
+
+			$posts = get_posts( array(
+				'post_type'     =>   'provider',
+				'orderby'       =>   'title',
+				'order'         =>   'ASC',
+				'numberposts'   =>   -1
+			) );
+
+			if ($target === 'bulk') {
+				$options = array(
+					''  => __( '— Sin cambios —', 'providers-for-woocommerce' ),
+					'0' => __( '— Ninguno —', 'providers-for-woocommerce' )
+				);
+			} else if ($target === 'quick') {
+				$options = array('' => '');
+			}
+
+			foreach ($posts as $key => $post) {
+				$options[$post->ID] = $post->post_title;
+			}
+
+			$content = '
+				<span class="title">' . __( 'Proveedor', 'providers-for-woocommerce' ) . '</span>
+				<span class="input-text-wrap">
+					<select class="change_provider change_to" name="change_provider">
+			';
+
+			foreach ( $options as $key => $value ) {
+				$content .= '<option value="' . esc_attr( $key ) . '">' . $value . '</option>';
+			}
+
+			$content .= '
+					</select>
+				</span>
+			';
+
+			if ($target === 'bulk') {
+				$content = '<label class="alignleft">' . $content . '</label>';
+			}
+
+			echo $content;
+
+			echo '</div>';
+		}
+
+		/**
+		 * Save provider field from product bulk edition.
+		 */
+		public function save_provider_field_in_product_bulk_edit( $product ) {
+			$this->save_provider_field_in_product_build_and_quick_edit($product, 'bulk');
+		}
+
+		/**
+		 * Save provider field from product quick edition.
+		 */
+		public function save_provider_field_in_product_quick_edit( $product ) {
+			$this->save_provider_field_in_product_build_and_quick_edit($product, 'quick');
+		}
+
+		/**
+		 * Save provider field from product in bulk and quick edition.
+		 */
+		private function save_provider_field_in_product_build_and_quick_edit($product, $from) {
+			$post_id = $product->get_id();
+
+			if ( isset( $_REQUEST['change_provider'] ) && ( ( $from === 'bulk' && $_REQUEST['change_provider'] !== '' ) || $from === 'quick' ) ) {
+				$provider = $_REQUEST['change_provider'];
+				update_post_meta( $post_id, 'provider', wc_clean( $provider ) );
 			}
 		}
 
@@ -360,6 +487,17 @@ if (!class_exists('Providers_For_WooCommerce')) {
 		}
 		public function admin_scripts() {
 			wp_enqueue_script( 'providers-for-woocommerce-scripts-js', $this->plugin_url() . '/assets/js/scripts.js', array( 'jquery' ), '', true );
+		}
+
+		/**
+		 * Populate quick edit custom field.
+		 */
+		public function provider_enqueue_quick_edit_js( $pageHook ) {
+			if ( 'edit.php' != $pageHook ) {
+				return;
+			}
+
+			wp_enqueue_script( 'providers-for-woocommerce-quick-edit-js', $this->plugin_url() . '/assets/js/quick-edit.js', array( 'jquery' ) );
 		}
 
 		/**
