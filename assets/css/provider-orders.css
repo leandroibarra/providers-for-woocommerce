@@ -3,6 +3,13 @@
 	visibility: hidden;
 }
 
+#table-provider-orders thead th:first-child,
+#table-provider-orders tfoot th:first-child {
+	padding-left: 10px;
+	padding-right: 10px;
+	text-align: left;
+}
+
 .export-wrapper {
 	display: block;
 	margin: 20px 0;

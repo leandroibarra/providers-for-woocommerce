@@ -37,7 +37,32 @@ jQuery(document).ready(function() {
 		}
 	});
 
+	jQuery('#table-provider-orders').on('click', '.select-all', function() {
+		var checked = jQuery(this).is(':checked');
+
+		if (checked) {
+			jQuery('.select-product').prop('checked', true);
+			jQuery('.select-all').prop('checked', true);
+
+			jQuery('.export-input').removeAttr('disabled').removeClass('disabled');
+		} else {
+			jQuery('.select-product').prop('checked', false);
+			jQuery('.select-all').prop('checked', false);
+
+			jQuery('.export-input').val('').attr('disabled', true).addClass('disabled');
+			jQuery('.export-button').attr('disabled', true).addClass('disabled');
+		}
+	});
+
 	jQuery('#table-provider-orders').on('click', '.select-product', function() {
+		if (!jQuery(this).is(':checked')) {
+			jQuery('.select-all').prop('checked', false);
+		} else {
+			if (jQuery('.select-product').length === jQuery('.select-product:checked').length) {
+				jQuery('.select-all').prop('checked', true);
+			}
+		}
+
 		if (jQuery('.select-product:checked').length > 0) {
 			jQuery('.export-input').removeAttr('disabled').removeClass('disabled');
 		} else {

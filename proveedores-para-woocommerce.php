@@ -8,7 +8,7 @@
  *
  * Text Domain: providers-for-woocommerce
  *
- * Version: 0.5.0
+ * Version: 0.6.0
  * License: GPL2
  */
 if (!class_exists('Providers_For_WooCommerce')) {
@@ -17,14 +17,14 @@ if (!class_exists('Providers_For_WooCommerce')) {
 	 *
 	 * Extends WooCommerce existing plugin.
 	 *
-	 * @version	0.5.0
+	 * @version	0.6.0
 	 * @author	Leandro Ibarra
 	 */
 	class Providers_For_WooCommerce {
 		/**
 		 * @var string
 		 */
-		public $version = '0.5.0';
+		public $version = '0.6.0';
 
 		/**
 		 * @var string

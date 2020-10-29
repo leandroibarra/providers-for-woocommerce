@@ -54,7 +54,9 @@ $columns = array(
 		<table id="table-provider-orders" class="display">
 			<thead>
 				<tr>
-					<th>&nbsp;</th>
+					<th>
+						<input type="checkbox" name="select_all_header" id="select_all_header" class="select-all" />
+					</th>
 					<?php foreach ($columns as $key => $column) { ?>
 					<th align="<?php echo (($key >= 2) ? 'right' : 'center'); ?>"><?php echo $column; ?></th>
 					<?php } ?>
@@ -79,7 +81,9 @@ $columns = array(
 
 			<tfoot>
 				<tr>
-					<th>&nbsp;</th>
+					<th>
+						<input type="checkbox" name="select_all_footer" id="select_all_footer" class="select-all" />
+					</th>
 					<?php foreach ($columns as $key => $column) { ?>
 					<th align="<?php echo (($key >= 2) ? 'right' : 'center'); ?>"><?php echo $column; ?></th>
 					<?php } ?>
