@@ -1,48 +1,73 @@
 <?php
 require_once ABSPATH . 'wp-admin/admin-header.php';
 
-$provider_id = $_GET['id'];
-
-$meta_key = 'provider';
-
 global $wpdb;
 
-$provider = $wpdb->get_results( "SELECT * FROM {$wpdb->prefix}posts WHERE ID={$provider_id}" );
+if ($_GET['id']) {
+	$meta_key = 'provider';
 
-$categories = $wpdb->get_results(
-	"
-	SELECT
-		term.term_id AS term_id,
-		term.name AS term_name,
-		COUNT(p.ID) AS quantity
-	FROM {$wpdb->prefix}term_taxonomy AS tax
-		LEFT JOIN {$wpdb->prefix}term_relationships AS rel ON rel.term_taxonomy_id = tax.term_taxonomy_id
-		LEFT JOIN {$wpdb->prefix}terms AS term ON term.term_id = tax.term_id
-		LEFT JOIN (
-			SELECT
-				P.ID,
-				P.post_title
-			FROM {$wpdb->prefix}postmeta PM
-				LEFT JOIN {$wpdb->prefix}posts P ON P.ID = PM.post_id
-			WHERE PM.meta_key='{$meta_key}' AND PM.meta_value={$provider_id}
-			ORDER BY P.post_title ASC
-		) AS p ON p.ID = rel.object_id
-	WHERE tax.taxonomy='product_cat'
-	GROUP BY tax.term_taxonomy_id
-	ORDER BY term.name ASC
-	",
-	'ARRAY_A'
-);
+	$provider_id = $_GET['id'];
+
+	$provider = $wpdb->get_results( "SELECT * FROM {$wpdb->prefix}posts WHERE ID={$provider_id}" );
+
+	$categories = $wpdb->get_results(
+		"
+		SELECT
+			term.term_id AS term_id,
+			term.name AS term_name,
+			COUNT(p.ID) AS quantity
+		FROM {$wpdb->prefix}term_taxonomy AS tax
+			LEFT JOIN {$wpdb->prefix}term_relationships AS rel ON rel.term_taxonomy_id = tax.term_taxonomy_id
+			LEFT JOIN {$wpdb->prefix}terms AS term ON term.term_id = tax.term_id
+			LEFT JOIN (
+				SELECT
+					P.ID,
+					P.post_title
+				FROM {$wpdb->prefix}postmeta PM
+					LEFT JOIN {$wpdb->prefix}posts P ON P.ID = PM.post_id
+				WHERE PM.meta_key='{$meta_key}' AND PM.meta_value={$provider_id}
+				ORDER BY P.post_title ASC
+			) AS p ON p.ID = rel.object_id
+		WHERE tax.taxonomy='product_cat'
+		GROUP BY tax.term_taxonomy_id
+		ORDER BY term.name ASC
+		",
+		'ARRAY_A'
+	);
+
+	$page_title = __( 'Reporte de Productos del proveedor', 'providers-for-woocommerce' ) . ' ' . esc_html( $provider[0]->post_title );
+} else {
+	$categories = $wpdb->get_results(
+		"
+		SELECT
+			term.term_id AS term_id,
+			term.name AS term_name,
+			COUNT(p.ID) AS quantity
+		FROM {$wpdb->prefix}term_taxonomy AS tax
+			LEFT JOIN {$wpdb->prefix}term_relationships AS rel ON rel.term_taxonomy_id = tax.term_taxonomy_id
+			LEFT JOIN {$wpdb->prefix}terms AS term ON term.term_id = tax.term_id
+			LEFT JOIN {$wpdb->prefix}posts P ON P.ID = rel.object_id
+		WHERE tax.taxonomy='product_cat'
+		GROUP BY tax.term_taxonomy_id
+		ORDER BY term.name ASC
+		",
+		'ARRAY_A'
+	);
+
+	$page_title = __( 'Reporte de Productos de Todos los Proveedores', 'providers-for-woocommerce' );
+}
 ?>
 
 <div class="wrap">
-	<h1 class="wp-heading-inline"><?php echo __( 'Reporte de Productos del proveedor', 'providers-for-woocommerce' ) . ' ' . esc_html( $provider[0]->post_title ); ?></h1>
+	<h1 class="wp-heading-inline"><?php echo $page_title; ?></h1>
 
 	<hr class="wp-header-end">
 
 	<div class="report-wrapper">
 		<form method="POST" action="/wp-admin/admin-ajax.php?action=generate_sales_report_xls" class="export-form">
+			<?php if ($_GET['id']) { ?>
 			<input type="hidden" name="provider_id" id="provider_id" value="<?php echo $provider_id; ?>" />
+			<?php } ?>
 
 			<input type="hidden" name="start_date" id="start_date" value="" />
 

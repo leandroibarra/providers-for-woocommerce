@@ -8,7 +8,7 @@
  *
  * Text Domain: providers-for-woocommerce
  *
- * Version: 0.6.0
+ * Version: 0.7.0
  * License: GPL2
  */
 if (!class_exists('Providers_For_WooCommerce')) {
@@ -17,14 +17,14 @@ if (!class_exists('Providers_For_WooCommerce')) {
 	 *
 	 * Extends WooCommerce existing plugin.
 	 *
-	 * @version	0.6.0
+	 * @version	0.7.0
 	 * @author	Leandro Ibarra
 	 */
 	class Providers_For_WooCommerce {
 		/**
 		 * @var string
 		 */
-		public $version = '0.6.0';
+		public $version = '0.7.0';
 
 		/**
 		 * @var string
@@ -422,6 +422,18 @@ if (!class_exists('Providers_For_WooCommerce')) {
 
 			add_action( 'admin_print_styles-' . $provider_report, array( $this, 'provider_report_enqueue_styles' ) );
 			add_action( 'admin_print_scripts-' . $provider_report, array( $this, 'provider_report_enqueue_scripts' ) );
+
+			$products_report = add_submenu_page(
+				'edit.php?post_type=provider',
+				__( 'Reportes de Productos', 'providers-for-woocommerce' ),
+				__( 'Reporte de Productos', 'providers-for-woocommerce' ),
+				'manage_options',
+				'products_report',
+				array($this, 'create_admin_provider_report')
+			);
+
+			add_action( 'admin_print_styles-' . $products_report, array( $this, 'provider_report_enqueue_styles' ) );
+			add_action( 'admin_print_scripts-' . $products_report, array( $this, 'provider_report_enqueue_scripts' ) );
 		}
 
 		/**
@@ -433,7 +445,7 @@ if (!class_exists('Providers_For_WooCommerce')) {
 			$screen = get_current_screen();
 
 			if (is_object($screen)) {
-				if ($typenow == 'provider') {
+				if ($typenow == 'provider' && ($screen->parent_base == 'edit' || in_array($_GET['page'], array('provider_products', 'provider_orders', 'provider_report')))) {
 					$parent_file = null;
 					$submenu_file = 'edit.php?post_type=provider';
 				}
@@ -577,15 +589,18 @@ if (!class_exists('Providers_For_WooCommerce')) {
 
 			global $wpdb;
 
-			$provider = $wpdb->get_results( "SELECT * FROM {$wpdb->prefix}posts WHERE ID={$_POST['provider_id']}" );
+			$sProviderCondition = "PM.meta_key='provider' ";
 
-			$provider_title = esc_html( $provider[0]->post_title );
+			if ($_POST['provider_id']) {
+				$sProviderCondition .= "AND PM.meta_value={$_POST['provider_id']} ";
+			}
 
 			$products = $wpdb->get_results(
 				"
 				SELECT
 					P.ID AS ID,
 					P.post_title AS post_title,
+					PROVIDER.post_title AS provider,
 					SKU.meta_value AS sku,
 					PURCHASE.meta_value AS purchase_price,
 					MARGIN.meta_value AS profit_margin,
@@ -595,6 +610,8 @@ if (!class_exists('Providers_For_WooCommerce')) {
 				FROM {$wpdb->prefix}postmeta PM
 					INNER JOIN {$wpdb->prefix}posts P
 						ON P.ID = PM.post_id
+					INNER JOIN {$wpdb->prefix}posts PROVIDER
+						ON PROVIDER.ID = PM.meta_value
 					INNER JOIN {$wpdb->prefix}term_relationships AS rel
 						ON rel.object_id = P.ID
 					INNER JOIN {$wpdb->prefix}terms AS term
@@ -618,8 +635,7 @@ if (!class_exists('Providers_For_WooCommerce')) {
 						GROUP BY product_id
 					) AS sales ON sales.product_id = P.ID
 				WHERE
-					PM.meta_key='provider' AND
-					PM.meta_value={$_POST['provider_id']} AND
+					{$sProviderCondition} AND
 					tax.term_id IN (".implode(', ', (array) $_POST['category_id']).") AND
 					SKU.meta_key = '_sku' AND
 					PURCHASE.meta_key = 'purchase_price' AND
@@ -633,7 +649,7 @@ if (!class_exists('Providers_For_WooCommerce')) {
 			foreach ($products as $key => $product) {
 				$aReport[$key][__('SKU', 'providers-for-woocommerce')] = $product['sku'];
 				$aReport[$key][__('Nombre', 'providers-for-woocommerce')] = $product['post_title'];
-				$aReport[$key][__('Proveedor', 'providers-for-woocommerce')] = $provider_title;
+				$aReport[$key][__('Proveedor', 'providers-for-woocommerce')] = $product['provider'];
 
 				$aReport[$key][__('Categoría/s', 'providers-for-woocommerce')] = implode(', ', array_map(
 					function($category) {
@@ -650,9 +666,12 @@ if (!class_exists('Providers_For_WooCommerce')) {
 
 			$aReport = array_merge(array(array_combine(array_keys($aReport[0]), array_keys($aReport[0]))), $aReport);
 
+			$sStartDate = date('d-m-Y', strtotime($_POST['start_date']));
+			$sEndDate = date('d-m-Y', strtotime($_POST['end_date']));
+
 			$xls = new Excel_XML;
-			$xls->addWorksheet(__('Hoja 1', 'providers-for-woocommerce'), $aReport);
-			$xls->sendWorkbook(mktime() . '_' . __('reporte_de_productos', 'providers-for-woocommerce').'.xls');
+			$xls->addWorksheet(implode(' - ', [$sStartDate, $sEndDate]), $aReport);
+			$xls->sendWorkbook(implode('_', [$sStartDate, $sEndDate, __('reporte_de_productos', 'providers-for-woocommerce')]).'.xls');
 
 			exit();
 		}
