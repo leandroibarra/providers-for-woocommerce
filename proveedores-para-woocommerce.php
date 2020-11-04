@@ -8,7 +8,7 @@
  *
  * Text Domain: providers-for-woocommerce
  *
- * Version: 0.7.0
+ * Version: 0.8.0
  * License: GPL2
  */
 if (!class_exists('Providers_For_WooCommerce')) {
@@ -17,14 +17,14 @@ if (!class_exists('Providers_For_WooCommerce')) {
 	 *
 	 * Extends WooCommerce existing plugin.
 	 *
-	 * @version	0.7.0
+	 * @version	0.8.0
 	 * @author	Leandro Ibarra
 	 */
 	class Providers_For_WooCommerce {
 		/**
 		 * @var string
 		 */
-		public $version = '0.7.0';
+		public $version = '0.8.0';
 
 		/**
 		 * @var string
@@ -526,6 +526,11 @@ if (!class_exists('Providers_For_WooCommerce')) {
 				if (isset($_price)) {
 					update_post_meta($_POST['post_id'], '_price', floatval($_price));
 					update_post_meta($_POST['post_id'], '_regular_price', floatval($_price));
+				}
+
+				$_stock = $_POST['_stock'];
+				if (isset($_stock)) {
+					update_post_meta($_POST['post_id'], '_stock', floatval($_stock));
 				}
 
 				update_post_meta($_POST['post_id'], 'profit_margin', (!empty($_POST['profit_margin'])) ? (filter_var($_POST['profit_margin'], FILTER_SANITIZE_NUMBER_INT) <= 200 ? filter_var($_POST['profit_margin'], FILTER_SANITIZE_NUMBER_INT) : 200) : 0);

@@ -45,7 +45,8 @@ jQuery(document).ready(function() {
 					post_id: post_id,
 					purchase_price: jQuery('#purchase_price_' + index).val(),
 					profit_margin: jQuery('#profit_margin_' + index).val(),
-					_price: jQuery('#_price_' + index).val()
+					_price: jQuery('#_price_' + index).val(),
+					_stock: jQuery('#_stock_' + index).val()
 				},
 				beforeSend: function() {
 					jQuery(a).html(
@@ -100,7 +101,8 @@ jQuery(document).ready(function() {
 						post_id: post_id,
 						purchase_price: jQuery('#purchase_price_' + index).val(),
 						profit_margin: jQuery('#profit_margin_' + index).val(),
-						_price: jQuery('#_price_' + index).val()
+						_price: jQuery('#_price_' + index).val(),
+						_stock: jQuery('#_stock_' + index).val()
 					},
 					beforeSend: function() {
 						jQuery(element).html(
@@ -132,7 +134,7 @@ jQuery(document).ready(function() {
 		}
 	});
 
-	jQuery('#table-provider-products').on('change', '.purchase_price, .profit_margin, .price', function() {
+	jQuery('#table-provider-products').on('change', '.purchase_price, .profit_margin, .price, .stock', function() {
 		var max = parseInt(jQuery(this).attr('max'));
 		var min = parseInt(jQuery(this).attr('min'));
 		var val = jQuery(this).val();

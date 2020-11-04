@@ -112,7 +112,21 @@ $columns = array(
 					);
 					?>
 					</td>
-					<td><?php echo $product['_stock']; ?></td>
+					<td>
+					<?php
+					woocommerce_wp_text_input(
+						array(
+							'id' => '_stock_' . $index,
+							'class' => 'stock',
+							'value' => $product['_stock'],
+							'type' => 'number',
+							'custom_attributes' => array(
+								'min' => '0',
+							)
+						)
+					);
+					?>
+					</td>
 					<td>
 						<a href="javascript:void(0);" class="save-product add-new-h2"><?php echo __('Guardar', 'providers-for-woocommerce'); ?></a>
 					</td>
