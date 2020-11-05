@@ -42,7 +42,7 @@ if ($_GET['id']) {
 		SELECT
 			term.term_id AS term_id,
 			term.name AS term_name,
-			COUNT(p.ID) AS quantity
+			COUNT(P.ID) AS quantity
 		FROM {$wpdb->prefix}term_taxonomy AS tax
 			LEFT JOIN {$wpdb->prefix}term_relationships AS rel ON rel.term_taxonomy_id = tax.term_taxonomy_id
 			LEFT JOIN {$wpdb->prefix}terms AS term ON term.term_id = tax.term_id
