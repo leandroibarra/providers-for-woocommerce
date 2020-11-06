@@ -8,7 +8,7 @@
  *
  * Text Domain: providers-for-woocommerce
  *
- * Version: 0.8.2
+ * Version: 0.8.4
  * License: GPL2
  */
 if (!class_exists('Providers_For_WooCommerce')) {
@@ -17,14 +17,14 @@ if (!class_exists('Providers_For_WooCommerce')) {
 	 *
 	 * Extends WooCommerce existing plugin.
 	 *
-	 * @version	0.8.2
+	 * @version	0.8.4
 	 * @author	Leandro Ibarra
 	 */
 	class Providers_For_WooCommerce {
 		/**
 		 * @var string
 		 */
-		public $version = '0.8.2';
+		public $version = '0.8.4';
 
 		/**
 		 * @var string
@@ -538,10 +538,7 @@ if (!class_exists('Providers_For_WooCommerce')) {
 					update_post_meta($_POST['post_id'], '_regular_price', floatval($_price));
 				}
 
-				$_stock = $_POST['_stock'];
-				if (isset($_stock)) {
-					update_post_meta($_POST['post_id'], '_stock', floatval($_stock));
-				}
+				update_post_meta($_POST['post_id'], '_stock', isset($_POST['_stock']) && is_numeric(wp_unslash($_POST['_stock'])) ? intval(wp_unslash($_POST['_stock'])) : '');
 
 				update_post_meta($_POST['post_id'], 'profit_margin', (!empty($_POST['profit_margin'])) ? (filter_var($_POST['profit_margin'], FILTER_SANITIZE_NUMBER_INT) <= 200 ? filter_var($_POST['profit_margin'], FILTER_SANITIZE_NUMBER_INT) : 200) : 0);
 
@@ -570,7 +567,7 @@ if (!class_exists('Providers_For_WooCommerce')) {
 					COALESCE(SSD.average_for_a_day, 0) AS average_for_a_day,
 					COALESCE(SKU.meta_value, '') AS sku
 				FROM {$wpdb->prefix}posts P
-					LEFT JOIN {$wpdb->prefix}{$this->products_sales_in_last_sixty_days} AS SSD
+					LEFT JOIN {$wpdb->prefix}{$this->products_sales_in_last_days} AS SSD
 						ON SSD.product_id = P.ID
 					LEFT JOIN {$wpdb->prefix}postmeta AS SKU
 						ON SKU.post_id = P.ID AND SKU.meta_key = '_sku'

@@ -207,5 +207,7 @@ jQuery(document).ready(function() {
 				}
 			}
 		}
+	}).on('keypress', '.stock', function(event) {
+		return event.charCode >= 48 && event.charCode <= 57;
 	});
 });

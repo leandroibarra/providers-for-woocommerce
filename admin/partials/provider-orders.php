@@ -74,7 +74,7 @@ $columns = array(
 					<td align="right"><?php echo $product['purchase_price']; ?></td>
 					<td align="right"><?php echo $product['profit_margin']; ?></td>
 					<td align="right"><?php echo $product['_price']; ?></td>
-					<td align="right"><?php echo $product['_stock']; ?></td>
+					<td align="right"><?php echo intval($product['_stock']); ?></td>
 				</tr>
 				<?php } ?>
 			</tbody>
