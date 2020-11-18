@@ -8,7 +8,7 @@
  *
  * Text Domain: providers-for-woocommerce
  *
- * Version: 0.9.0
+ * Version: 0.11.0
  * License: GPL2
  */
 if (!class_exists('Providers_For_WooCommerce')) {
@@ -17,14 +17,14 @@ if (!class_exists('Providers_For_WooCommerce')) {
 	 *
 	 * Extends WooCommerce existing plugin.
 	 *
-	 * @version	0.9.0
+	 * @version	0.11.0
 	 * @author	Leandro Ibarra
 	 */
 	class Providers_For_WooCommerce {
 		/**
 		 * @var string
 		 */
-		public $version = '0.9.0';
+		public $version = '0.11.0';
 
 		/**
 		 * @var string
@@ -45,6 +45,16 @@ if (!class_exists('Providers_For_WooCommerce')) {
 		 * @var string
 		 */
 		private $products_sales_in_last_days = 'view_products_sales_in_last_days';
+
+		/**
+		 * @var string
+		 */
+		private $products_sales_in_last_30_days = 'view_products_sales_in_last_30_days';
+
+		/**
+		 * @var string
+		 */
+		private $products_sales_in_last_60_days = 'view_products_sales_in_last_60_days';
 
 		/**
 		 * @var string
@@ -563,7 +573,8 @@ if (!class_exists('Providers_For_WooCommerce')) {
 				SELECT
 					P.ID,
 					P.post_title,
-					COALESCE(SSD.quantity, 0) AS quantity,
+					COALESCE(SSD.quantity_60, 0) AS quantity_60,
+					COALESCE(SSD.quantity_30, 0) AS quantity_30,
 					COALESCE(SSD.average_for_a_day, 0) AS average_for_a_day,
 					COALESCE(SKU.meta_value, '') AS sku
 				FROM {$wpdb->prefix}posts P
@@ -579,6 +590,8 @@ if (!class_exists('Providers_For_WooCommerce')) {
 			foreach ($products as $key => $product) {
 				$aReport[$key][__('SKU', 'providers-for-woocommerce')] = $product['sku'];
 				$aReport[$key][__('Nombre', 'providers-for-woocommerce')] = $product['post_title'];
+				$aReport[$key][__('Ventas Últimos 60 días', 'providers-for-woocommerce')] = $product['quantity_60'];
+				$aReport[$key][__('Ventas Últimos 30 días', 'providers-for-woocommerce')] = $product['quantity_30'];
 				$aReport[$key][__('Cantidad Compra', 'providers-for-woocommerce')] = intval($product['average_for_a_day']) * intval($_POST['days']);
 			}
 
@@ -615,7 +628,7 @@ if (!class_exists('Providers_For_WooCommerce')) {
 					PROVIDER.post_title AS provider,
 					SKU.meta_value AS sku,
 					FORMAT(STOCK.meta_value, 0) AS stock,
-					PURCHASE.meta_value AS purchase_price,
+					COALESCE(FORMAT(PURCHASE.meta_value, 2), 0) AS purchase_price,
 					MARGIN.meta_value AS profit_margin,
 					COALESCE(sales.quantity, 0) AS quantity,
 					COALESCE(sales.total, 0) AS total,
@@ -737,32 +750,73 @@ if (!class_exists('Providers_For_WooCommerce')) {
 			global $wpdb;
 
 			$sql = "
-				CREATE OR REPLACE VIEW {$wpdb->prefix}{$this->products_sales_in_last_days} AS
+				CREATE OR REPLACE VIEW {$wpdb->prefix}{$this->products_sales_in_last_30_days} AS
 					SELECT
 						SUM(OI_QUANTITY.meta_value) AS quantity,
-						CEIL(SUM(OI_QUANTITY.meta_value) / IF(DATEDIFF(CURRENT_DATE, PRODUCT.post_date)<{$this->last_days}, DATEDIFF(CURRENT_DATE, PRODUCT.post_date), {$this->last_days})) AS average_for_a_day,
-						OI_PRODUCT_ID.meta_value AS product_id
-					FROM {$wpdb->prefix}posts AS P
+						OI_PRODUCT_VARIATION.meta_value AS product_id
+					FROM {$wpdb->prefix}posts AS SALES
 						INNER JOIN {$wpdb->prefix}woocommerce_order_items AS OI
-							ON P.ID = OI.order_id
+							ON SALES.ID = OI.order_id
 						INNER JOIN {$wpdb->prefix}woocommerce_order_itemmeta AS OI_QUANTITY
 							ON OI.order_item_id = OI_QUANTITY.order_item_id AND OI_QUANTITY.meta_key = '_qty'
 						INNER JOIN {$wpdb->prefix}woocommerce_order_itemmeta AS OI_PRODUCT_ID
 							ON OI.order_item_id = OI_PRODUCT_ID.order_item_id AND OI_PRODUCT_ID.meta_key = '_product_id'
 						INNER JOIN {$wpdb->prefix}woocommerce_order_itemmeta AS OI_PRODUCT_VARIATION
 							ON OI.order_item_id = OI_PRODUCT_VARIATION.order_item_id
-						INNER JOIN {$wpdb->prefix}posts PRODUCT
-							ON PRODUCT.ID = OI_PRODUCT_VARIATION.meta_value
 					WHERE
-						P.post_type IN ('shop_order', 'shop_order_refund') AND
-						P.post_status IN ('wc-completed', 'wc-processing', 'wc-on-hold',' wc-refunded') AND
-						P.post_date >= CONCAT(CURRENT_DATE - INTERVAL IF(DATEDIFF(CURRENT_DATE, PRODUCT.post_date)<{$this->last_days}, DATEDIFF(CURRENT_DATE, PRODUCT.post_date), {$this->last_days}) DAY, ' 00:00:00') AND
-						P.post_date < CONCAT(CURRENT_DATE, ' 23:59:59') AND
-						OI_PRODUCT_VARIATION.meta_key IN ('_product_id', '_variation_id') AND
-						PRODUCT.post_type='product' AND
-						PRODUCT.post_status='publish'
-					GROUP BY product_id
-					ORDER BY quantity DESC;
+						SALES.post_type IN ('shop_order', 'shop_order_refund') AND
+						SALES.post_status IN ('wc-completed', 'wc-processing', 'wc-on-hold',' wc-refunded') AND
+						SALES.post_date >= CONCAT(CURRENT_DATE - INTERVAL {$this->last_days} DAY, ' 00:00:00') AND
+						SALES.post_date < CONCAT(CURRENT_DATE, ' 23:59:59') AND
+						OI_PRODUCT_VARIATION.meta_key IN ('_product_id', '_variation_id')
+					GROUP BY product_id;
+			";
+
+			$result = $wpdb->query($sql);
+
+			$sql = "
+				CREATE OR REPLACE VIEW {$wpdb->prefix}{$this->products_sales_in_last_60_days} AS
+					SELECT
+						SUM(OI_QUANTITY.meta_value) AS quantity,
+						OI_PRODUCT_VARIATION.meta_value AS product_id
+					FROM {$wpdb->prefix}posts AS SALES
+						INNER JOIN {$wpdb->prefix}woocommerce_order_items AS OI
+							ON SALES.ID = OI.order_id
+						INNER JOIN {$wpdb->prefix}woocommerce_order_itemmeta AS OI_QUANTITY
+							ON OI.order_item_id = OI_QUANTITY.order_item_id AND OI_QUANTITY.meta_key = '_qty'
+						INNER JOIN {$wpdb->prefix}woocommerce_order_itemmeta AS OI_PRODUCT_ID
+							ON OI.order_item_id = OI_PRODUCT_ID.order_item_id AND OI_PRODUCT_ID.meta_key = '_product_id'
+						INNER JOIN {$wpdb->prefix}woocommerce_order_itemmeta AS OI_PRODUCT_VARIATION
+							ON OI.order_item_id = OI_PRODUCT_VARIATION.order_item_id
+					WHERE
+						SALES.post_type IN ('shop_order', 'shop_order_refund') AND
+						SALES.post_status IN ('wc-completed', 'wc-processing', 'wc-on-hold',' wc-refunded') AND
+						SALES.post_date >= CONCAT(CURRENT_DATE - INTERVAL 60 DAY, ' 00:00:00') AND
+						SALES.post_date < CONCAT(CURRENT_DATE, ' 23:59:59') AND
+						OI_PRODUCT_VARIATION.meta_key IN ('_product_id', '_variation_id')
+					GROUP BY product_id;
+			";
+
+			$result = $wpdb->query($sql);
+
+			$sql = "
+				CREATE OR REPLACE VIEW {$wpdb->prefix}{$this->products_sales_in_last_days} AS
+					SELECT
+						P.ID AS product_id,
+						COALESCE(last_60.quantity, 0) AS quantity_60,
+						COALESCE(last_30.quantity, 0) AS quantity_30,
+						COALESCE(CEIL(last_30.quantity / IF(DATEDIFF(CURRENT_DATE, P.post_date)<{$this->last_days}, DATEDIFF(CURRENT_DATE, P.post_date), {$this->last_days})), 0) AS average_for_a_day
+					FROM {$wpdb->prefix}posts AS P
+						LEFT JOIN {$wpdb->prefix}{$this->products_sales_in_last_30_days} AS last_30
+							ON last_30.product_id=P.ID
+						LEFT JOIN {$wpdb->prefix}{$this->products_sales_in_last_60_days} AS last_60
+							ON last_60.product_id=P.ID
+					WHERE
+						P.post_type='product' AND
+						P.post_status='publish' AND (
+							COALESCE(last_30.quantity, 0)>0 OR
+							COALESCE(last_60.quantity, 0)
+						);
 			";
 
 			$result = $wpdb->query($sql);
@@ -818,11 +872,15 @@ if (!class_exists('Providers_For_WooCommerce')) {
 		public function db_remove() {
 			global $wpdb;
 
-			$result = $wpdb->query("DROP VIEW IF EXISTS {$wpdb->prefix}{$this->products_sales_in_last_days};");
-
-			$result = $wpdb->query("DROP VIEW IF EXISTS {$wpdb->prefix}{$this->products_sales_in_last_sixty_days};");
-
-			$result = $wpdb->query("DROP VIEW IF EXISTS {$wpdb->prefix}{$this->products_sales_meta_values};");
+			foreach (
+				[
+					$this->products_sales_in_last_sixty_days, $this->products_sales_in_last_30_days,
+					$this->products_sales_in_last_60_days, $this->products_sales_meta_values,
+					$this->products_sales_in_last_days
+				] as $view
+			) {
+				$result = $wpdb->query("DROP VIEW IF EXISTS {$wpdb->prefix}{$view};");
+			}
 		}
 	}
 
