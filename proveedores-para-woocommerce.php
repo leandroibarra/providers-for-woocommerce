@@ -677,6 +677,7 @@ if (!class_exists('Providers_For_WooCommerce')) {
 				$aReport[$key][__('Stock', 'providers-for-woocommerce')] = $product['stock'];
 				$aReport[$key][__('Cantidad de Unidades Vendidas', 'providers-for-woocommerce')] = $product['quantity'];
 				$aReport[$key][__('Monto ventas', 'providers-for-woocommerce')] = $product['total'];
+				$aReport[$key][__('Precio de Compra')] = $product['purchase_price'];
 				$aReport[$key][__('Margen de Ganancia', 'providers-for-woocommerce')] = $product['profit_margin'];
 				$aReport[$key][__('Utilidad', 'providers-for-woocommerce')] = $product['utility'];
 			}
