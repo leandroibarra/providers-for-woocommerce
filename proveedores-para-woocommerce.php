@@ -8,7 +8,7 @@
  *
  * Text Domain: providers-for-woocommerce
  *
- * Version: 0.8.4
+ * Version: 0.9.0
  * License: GPL2
  */
 if (!class_exists('Providers_For_WooCommerce')) {
@@ -17,14 +17,14 @@ if (!class_exists('Providers_For_WooCommerce')) {
 	 *
 	 * Extends WooCommerce existing plugin.
 	 *
-	 * @version	0.8.4
+	 * @version	0.9.0
 	 * @author	Leandro Ibarra
 	 */
 	class Providers_For_WooCommerce {
 		/**
 		 * @var string
 		 */
-		public $version = '0.8.4';
+		public $version = '0.9.0';
 
 		/**
 		 * @var string
@@ -614,6 +614,7 @@ if (!class_exists('Providers_For_WooCommerce')) {
 					P.post_title AS post_title,
 					PROVIDER.post_title AS provider,
 					SKU.meta_value AS sku,
+					FORMAT(STOCK.meta_value, 0) AS stock,
 					PURCHASE.meta_value AS purchase_price,
 					MARGIN.meta_value AS profit_margin,
 					COALESCE(sales.quantity, 0) AS quantity,
@@ -632,6 +633,8 @@ if (!class_exists('Providers_For_WooCommerce')) {
 						ON tax.term_taxonomy_id = rel.term_taxonomy_id
 					LEFT JOIN {$wpdb->prefix}postmeta SKU
 						ON SKU.post_id = P.ID
+					LEFT JOIN {$wpdb->prefix}postmeta STOCK
+						ON STOCK.post_id = P.ID
 					LEFT JOIN {$wpdb->prefix}postmeta PURCHASE
 						ON PURCHASE.post_id = P.ID
 					LEFT JOIN {$wpdb->prefix}postmeta MARGIN
@@ -650,6 +653,7 @@ if (!class_exists('Providers_For_WooCommerce')) {
 					{$sProviderCondition} AND
 					tax.term_id IN (".implode(', ', (array) $_POST['category_id']).") AND
 					SKU.meta_key = '_sku' AND
+					STOCK.meta_key = '_stock' AND
 					PURCHASE.meta_key = 'purchase_price' AND
 					MARGIN.meta_key = 'profit_margin'
 				GROUP BY P.ID
@@ -670,6 +674,7 @@ if (!class_exists('Providers_For_WooCommerce')) {
 					wp_get_post_terms($product['ID'], 'product_cat'))
 				);
 
+				$aReport[$key][__('Stock', 'providers-for-woocommerce')] = $product['stock'];
 				$aReport[$key][__('Cantidad de Unidades Vendidas', 'providers-for-woocommerce')] = $product['quantity'];
 				$aReport[$key][__('Monto ventas', 'providers-for-woocommerce')] = $product['total'];
 				$aReport[$key][__('Margen de Ganancia', 'providers-for-woocommerce')] = $product['profit_margin'];

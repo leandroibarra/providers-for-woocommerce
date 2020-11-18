@@ -30,3 +30,23 @@ jQuery(document).ready(function() {
 		}
 	}
 });
+
+jQuery('[id^=cb-select-all-]').on('click', function() {
+	var checked = jQuery(this).is(':checked');
+
+	if (checked) {
+		jQuery('[id^=cb-select-all-], [id^=cb-select-]').prop('checked', true);
+	} else {
+		jQuery('[id^=cb-select-all-], [id^=cb-select-]').prop('checked', false);
+	}
+});
+
+jQuery('[id^=cb-select-]').on('click', function() {
+	if (jQuery(this).is(':checked')) {
+		if (jQuery('[id^=cb-select-]').length === jQuery('[id^=cb-select-]:checked').length) {
+			jQuery('[id^=cb-select-all-]').prop('checked', true);
+		}
+	} else {
+		jQuery('[id^=cb-select-all-]').prop('checked', false);
+	}
+});
