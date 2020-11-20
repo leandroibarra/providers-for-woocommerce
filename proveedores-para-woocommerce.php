@@ -614,10 +614,10 @@ if (!class_exists('Providers_For_WooCommerce')) {
 
 			global $wpdb;
 
-			$sProviderCondition = "PM.meta_key='provider' ";
+			$sProviderCondition = '';
 
 			if ($_POST['provider_id']) {
-				$sProviderCondition .= "AND PM.meta_value={$_POST['provider_id']} ";
+				$sProviderCondition = " PM.meta_value={$_POST['provider_id']} AND ";
 			}
 
 			$products = $wpdb->get_results(
@@ -625,33 +625,29 @@ if (!class_exists('Providers_For_WooCommerce')) {
 				SELECT
 					P.ID AS ID,
 					P.post_title AS post_title,
-					PROVIDER.post_title AS provider,
-					SKU.meta_value AS sku,
-					FORMAT(STOCK.meta_value, 0) AS stock,
-					COALESCE(FORMAT(PURCHASE.meta_value, 2), 0) AS purchase_price,
-					MARGIN.meta_value AS profit_margin,
+					COALESCE(PROVIDER.post_title, '') AS provider,
+					FORMAT(SKU.meta_value, 0) AS sku,
+					STOCK.meta_value AS stock,
+					COALESCE(PURCHASE.meta_value, 0) AS purchase_price,
+					COALESCE(MARGIN.meta_value, 0) AS profit_margin,
 					COALESCE(sales.quantity, 0) AS quantity,
 					COALESCE(sales.total, 0) AS total,
 					COALESCE(sales.utility, 0) AS utility
-				FROM {$wpdb->prefix}postmeta PM
-					INNER JOIN {$wpdb->prefix}posts P
-						ON P.ID = PM.post_id
-					INNER JOIN {$wpdb->prefix}posts PROVIDER
-						ON PROVIDER.ID = PM.meta_value
+				FROM {$wpdb->prefix}posts P
 					INNER JOIN {$wpdb->prefix}term_relationships AS rel
 						ON rel.object_id = P.ID
 					INNER JOIN {$wpdb->prefix}terms AS term
 						ON term.term_id = rel.term_taxonomy_id
 					INNER JOIN {$wpdb->prefix}term_taxonomy AS tax
-						ON tax.term_taxonomy_id = rel.term_taxonomy_id
+						ON tax.taxonomy='product_cat' AND tax.term_taxonomy_id = rel.term_taxonomy_id
 					LEFT JOIN {$wpdb->prefix}postmeta SKU
-						ON SKU.post_id = P.ID
+						ON SKU.meta_key = '_sku' AND SKU.post_id = P.ID
 					LEFT JOIN {$wpdb->prefix}postmeta STOCK
-						ON STOCK.post_id = P.ID
+						ON STOCK.meta_key = '_stock' AND STOCK.post_id = P.ID
 					LEFT JOIN {$wpdb->prefix}postmeta PURCHASE
-						ON PURCHASE.post_id = P.ID
+						ON PURCHASE.meta_key = 'purchase_price' AND PURCHASE.post_id = P.ID
 					LEFT JOIN {$wpdb->prefix}postmeta MARGIN
-						ON MARGIN.post_id = P.ID
+						ON MARGIN.meta_key = 'profit_margin' AND MARGIN.post_id = P.ID
 					LEFT JOIN (
 						SELECT
 							SUM(quantity) AS quantity,
@@ -662,15 +658,17 @@ if (!class_exists('Providers_For_WooCommerce')) {
 						WHERE order_date BETWEEN '{$_POST['start_date']}' AND '{$_POST['end_date']}'
 						GROUP BY product_id
 					) AS sales ON sales.product_id = P.ID
+					LEFT JOIN {$wpdb->prefix}postmeta PM
+						ON PM.meta_key='provider' AND PM.post_id = P.ID
+					LEFT JOIN {$wpdb->prefix}posts PROVIDER
+						ON PROVIDER.ID = PM.meta_value
 				WHERE
-					{$sProviderCondition} AND
-					tax.term_id IN (".implode(', ', (array) $_POST['category_id']).") AND
-					SKU.meta_key = '_sku' AND
-					STOCK.meta_key = '_stock' AND
-					PURCHASE.meta_key = 'purchase_price' AND
-					MARGIN.meta_key = 'profit_margin'
+					{$sProviderCondition}
+					P.post_type='product' AND
+					P.post_status = 'publish' AND
+					tax.term_id IN (".implode(', ', (array) $_POST['category_id']).")
 				GROUP BY P.ID
-				ORDER BY P.post_title ASC
+				ORDER BY P.post_title ASC;
 				",
 				'ARRAY_A'
 			);
