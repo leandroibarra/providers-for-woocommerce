@@ -8,7 +8,7 @@
  *
  * Text Domain: providers-for-woocommerce
  *
- * Version: 0.11.0
+ * Version: 0.11.2
  * License: GPL2
  */
 if (!class_exists('Providers_For_WooCommerce')) {
@@ -17,14 +17,14 @@ if (!class_exists('Providers_For_WooCommerce')) {
 	 *
 	 * Extends WooCommerce existing plugin.
 	 *
-	 * @version	0.11.0
+	 * @version	0.11.2
 	 * @author	Leandro Ibarra
 	 */
 	class Providers_For_WooCommerce {
 		/**
 		 * @var string
 		 */
-		public $version = '0.11.0';
+		public $version = '0.11.2';
 
 		/**
 		 * @var string
@@ -575,13 +575,16 @@ if (!class_exists('Providers_For_WooCommerce')) {
 					P.post_title,
 					COALESCE(SSD.quantity_60, 0) AS quantity_60,
 					COALESCE(SSD.quantity_30, 0) AS quantity_30,
-					COALESCE(SSD.average_for_a_day, 0) AS average_for_a_day,
+					COALESCE(PURCHASE.meta_value, 0) AS purchase_price,
+					CEIL(COALESCE(SSD.average_for_a_day, 0) * ".intval($_POST['days']).") AS quantity_to_purchase,
 					COALESCE(SKU.meta_value, '') AS sku
 				FROM {$wpdb->prefix}posts P
 					LEFT JOIN {$wpdb->prefix}{$this->products_sales_in_last_days} AS SSD
 						ON SSD.product_id = P.ID
 					LEFT JOIN {$wpdb->prefix}postmeta AS SKU
 						ON SKU.post_id = P.ID AND SKU.meta_key = '_sku'
+					LEFT JOIN {$wpdb->prefix}postmeta PURCHASE
+						ON PURCHASE.meta_key = 'purchase_price' AND PURCHASE.post_id = P.ID
 				WHERE P.ID IN (".implode(', ', $_POST['product_id']).")
 				",
 				'ARRAY_A'
@@ -592,7 +595,8 @@ if (!class_exists('Providers_For_WooCommerce')) {
 				$aReport[$key][__('Nombre', 'providers-for-woocommerce')] = $product['post_title'];
 				$aReport[$key][__('Ventas Últimos 60 días', 'providers-for-woocommerce')] = $product['quantity_60'];
 				$aReport[$key][__('Ventas Últimos 30 días', 'providers-for-woocommerce')] = $product['quantity_30'];
-				$aReport[$key][__('Cantidad Compra', 'providers-for-woocommerce')] = intval($product['average_for_a_day']) * intval($_POST['days']);
+				$aReport[$key][__('Precio de Compra')] = $product['purchase_price'];
+				$aReport[$key][__('Cantidad Compra', 'providers-for-woocommerce')] = $product['quantity_to_purchase'];
 			}
 
 			$aReport = array_merge(array(array_combine(array_keys($aReport[0]), array_keys($aReport[0]))), $aReport);
@@ -626,13 +630,13 @@ if (!class_exists('Providers_For_WooCommerce')) {
 					P.ID AS ID,
 					P.post_title AS post_title,
 					COALESCE(PROVIDER.post_title, '') AS provider,
-					FORMAT(SKU.meta_value, 0) AS sku,
+					COALESCE(SKU.meta_value, '') AS sku,
 					STOCK.meta_value AS stock,
 					COALESCE(PURCHASE.meta_value, 0) AS purchase_price,
 					COALESCE(MARGIN.meta_value, 0) AS profit_margin,
 					COALESCE(sales.quantity, 0) AS quantity,
-					COALESCE(sales.total, 0) AS total,
-					COALESCE(sales.utility, 0) AS utility
+					REPLACE(REPLACE(COALESCE(sales.total, 0), ',', ''), '.', ',') AS total,
+					REPLACE(REPLACE(FORMAT(COALESCE(sales.total, 0) - (COALESCE(PURCHASE.meta_value, 0) * COALESCE(sales.quantity, 0)), 2), ',', ''), '.', ',') AS utility
 				FROM {$wpdb->prefix}posts P
 					INNER JOIN {$wpdb->prefix}term_relationships AS rel
 						ON rel.object_id = P.ID
@@ -803,7 +807,7 @@ if (!class_exists('Providers_For_WooCommerce')) {
 						P.ID AS product_id,
 						COALESCE(last_60.quantity, 0) AS quantity_60,
 						COALESCE(last_30.quantity, 0) AS quantity_30,
-						COALESCE(CEIL(last_30.quantity / IF(DATEDIFF(CURRENT_DATE, P.post_date)<{$this->last_days}, DATEDIFF(CURRENT_DATE, P.post_date), {$this->last_days})), 0) AS average_for_a_day
+						COALESCE(last_30.quantity / IF(DATEDIFF(CURRENT_DATE, P.post_date)<{$this->last_days}, DATEDIFF(CURRENT_DATE, P.post_date), {$this->last_days}), 0) AS average_for_a_day
 					FROM {$wpdb->prefix}posts AS P
 						LEFT JOIN {$wpdb->prefix}{$this->products_sales_in_last_30_days} AS last_30
 							ON last_30.product_id=P.ID
