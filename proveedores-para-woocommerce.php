@@ -8,7 +8,7 @@
  *
  * Text Domain: providers-for-woocommerce
  *
- * Version: 0.11.2
+ * Version: 0.11.3
  * License: GPL2
  */
 if (!class_exists('Providers_For_WooCommerce')) {
@@ -17,14 +17,14 @@ if (!class_exists('Providers_For_WooCommerce')) {
 	 *
 	 * Extends WooCommerce existing plugin.
 	 *
-	 * @version	0.11.2
+	 * @version	0.11.3
 	 * @author	Leandro Ibarra
 	 */
 	class Providers_For_WooCommerce {
 		/**
 		 * @var string
 		 */
-		public $version = '0.11.2';
+		public $version = '0.11.3';
 
 		/**
 		 * @var string
@@ -828,7 +828,7 @@ if (!class_exists('Providers_For_WooCommerce')) {
 					SELECT
 						P.ID AS order_id,
 						P.post_date AS order_date,
-						OI_PRODUCT_ID.meta_value AS product_id,
+						OI_PRODUCT_VARIATION.meta_value AS product_id,
 						-- Cantidad de unidades vendidas en la orden
 						SUM(OI_QUANTITY.meta_value) AS quantity,
 						-- Monto total del producto en la orden (cantidad * precio de venta)
